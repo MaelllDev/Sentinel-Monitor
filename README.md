@@ -210,3 +210,15 @@ sentinel-monitor/
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
+
+## Support
+
+If you find this project useful, consider supporting its development:
+
+| Platform | Link |
+|---|---|
+| GitHub | [MaelllDev](https://github.com/MaelllDev) |
+| Discord | [Discord](https://discord.com/invite/xykJqCUeNt) |
+| YouTube | [ManoshzDev](https://www.youtube.com/@ManoshzDev) |
+| Instagram | [MaelllDev](https://www.instagram.com/omaelldev/) |
+| Support | [Pix](https://pixgg.com/maelldev) |
