@@ -337,7 +337,7 @@ casaos_register_app() {
     compose=$(casaos_render_yaml) || return 1
 
     info "Registrando ${name} no CasaOS..."
-    
+
     # First, check if app already exists and uninstall it
     if casaos_check_app "$url" "$token"; then
         info "Removendo app legado do CasaOS..."
