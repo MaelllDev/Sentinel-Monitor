@@ -28,18 +28,33 @@ ask() {
     local prompt="$1" default="$2"
     [ -n "$default" ] && echo -ne "${BOLD}${prompt}${RESET} [${CYAN}${default}${RESET}]: " \
                       || echo -ne "${BOLD}${prompt}${RESET}: "
-    read -r REPLY
+    if [ -t 0 ]; then
+        read -r REPLY
+    else
+        read -r REPLY < /dev/tty
+    fi
     [ -z "$REPLY" ] && REPLY="$default"
 }
 
 ask_secret() {
     echo -ne "${BOLD}$1${RESET}: "
-    read -rs REPLY; echo
+    if [ -t 0 ]; then
+        read -rs REPLY
+    else
+        read -rs REPLY < /dev/tty
+    fi
+    echo
 }
 
 confirm() {
     echo -ne "${BOLD}$1${RESET} [${GREEN}s${RESET}/${RED}n${RESET}]: "
-    read -r ans; [[ "$ans" =~ ^[sSyY] ]]
+    local ans
+    if [ -t 0 ]; then
+        read -r ans
+    else
+        read -r ans < /dev/tty
+    fi
+    [[ "$ans" =~ ^[sSyY] ]]
 }
 
 # ── Banner ───────────────────────────────────────────────────────────────────
