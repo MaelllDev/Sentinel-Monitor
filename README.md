@@ -52,6 +52,41 @@ Funciona com uma arquitetura **master/node**:
 
 ---
 
+## Imagens Docker
+
+As imagens são publicadas automaticamente no GitHub Container Registry a cada push na `main`:
+
+| Imagem | Descrição |
+|---|---|
+| `ghcr.io/maellldev/sentinel-monitor-master:latest` | Bot do Telegram + servidor WebSocket |
+| `ghcr.io/maellldev/sentinel-monitor-node:latest` | Agente de métricas para VPS |
+
+Para usar a imagem pré-buildada do node (sem precisar clonar o repositório):
+
+```bash
+docker run -d \
+  --name monitor-node \
+  --restart unless-stopped \
+  -e MASTER_WS_URL=ws://SEU_IP_MASTER:8765 \
+  -e API_KEY=SUA_API_KEY \
+  -e NODE_NAME=nome-da-vps \
+  --pid=host \
+  -v /proc:/host/proc:ro \
+  -v /sys:/host/sys:ro \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  ghcr.io/maellldev/sentinel-monitor-node:latest
+```
+
+Para atualizar um node para a versão mais recente:
+
+```bash
+docker pull ghcr.io/maellldev/sentinel-monitor-node:latest
+docker stop monitor-node && docker rm monitor-node
+# rode o docker run novamente com os mesmos parâmetros
+```
+
+---
+
 ## Instalação
 
 ### 1. Clone o repositório

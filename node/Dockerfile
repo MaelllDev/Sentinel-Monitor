@@ -1,5 +1,9 @@
 FROM python:3.11-slim
 
+LABEL org.opencontainers.image.source=https://github.com/MaelllDev/sentinel-monitor
+LABEL org.opencontainers.image.description="Sentinel Monitor — node: agente de métricas para VPS"
+LABEL org.opencontainers.image.licenses=MIT
+
 WORKDIR /app
 
 # Instala dependências do sistema (para psutil compilar sensores)

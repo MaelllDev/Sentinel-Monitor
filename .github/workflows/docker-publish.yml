@@ -1,0 +1,104 @@
+name: Build & Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # Rebuilda master apenas quando arquivos do master mudarem
+      - "master/**"
+      - "!master/Dockerfile"  # o próprio Dockerfile é tratado abaixo
+      - "master/Dockerfile"
+      # Rebuilda node apenas quando arquivos do node mudarem
+      - "node/**"
+      - "!node/Dockerfile"
+      - "node/Dockerfile"
+      # Qualquer mudança no workflow também triggera
+      - ".github/workflows/docker-publish.yml"
+  # Permite rodar manualmente pelo GitHub Actions UI
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: maellldev  # deve ser lowercase
+
+jobs:
+  # ────────────────────────────────────────────────────────────
+  # Build e push da imagem MASTER
+  # ────────────────────────────────────────────────────────────
+  build-master:
+    name: Build master
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/sentinel-monitor-master
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push master image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./master
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ────────────────────────────────────────────────────────────
+  # Build e push da imagem NODE
+  # ────────────────────────────────────────────────────────────
+  build-node:
+    name: Build node
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/sentinel-monitor-node
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push node image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./node
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
