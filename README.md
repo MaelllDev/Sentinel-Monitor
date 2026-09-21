@@ -6,7 +6,7 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-MaelllDev%2Fsentinel--monitor-181717?style=flat&logo=github)](https://github.com/MaelllDev/sentinel-monitor)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)](https://docs.docker.com/get-docker/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat)](LICENSE)
 
 </div>
@@ -21,12 +21,72 @@ Funciona com uma arquitetura **master/node**:
 
 ```
 [VPS Node 1] ──┐
-[VPS Node 2] ──┼── WebSocket ──► [Master PC] ──► [Telegram Bot]
+[VPS Node 2] ──┼── WebSocket ──► [Master] ──► [Telegram Bot]
 [VPS Node N] ──┘
 ```
 
 - **Master** — roda no seu PC ou servidor central. Hospeda o bot do Telegram e o servidor WebSocket que recebe dados dos nodes.
 - **Node** — um agente leve que roda em cada VPS. Coleta métricas do sistema e envia ao master continuamente.
+
+---
+
+## Instalação
+
+Tudo é feito com um único comando — sem clonar o repositório, sem buildar imagens.
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/MaelllDev/sentinel-monitor/main/setup.sh)
+```
+
+O script apresenta um menu interativo:
+
+```
+  [1] Instalar MASTER  (bot do Telegram + servidor WebSocket)
+  [2] Instalar NODE    (agente de métricas para esta VPS)
+  [3] Atualizar MASTER
+  [4] Atualizar NODE
+  [5] Remover MASTER
+  [6] Remover NODE
+```
+
+### Instalar o Master
+
+Execute o script no servidor que vai rodar o bot. Você vai precisar de:
+
+- Token do bot do Telegram — crie via [@BotFather](https://t.me/BotFather)
+- Seu `chat_id` do Telegram — obtenha via [@userinfobot](https://t.me/userinfobot)
+- IP público ou local deste servidor (para os nodes se conectarem)
+
+O script configura tudo interativamente, baixa as imagens do registry e sobe o master junto com um node local que monitora o próprio servidor.
+
+### Instalar um Node (VPS)
+
+Execute o script em cada VPS que quiser monitorar. Você vai precisar da API Key gerada durante a instalação do master.
+
+Ou use `/integrar` no Telegram — o bot gera o `docker run` completo com tudo preenchido.
+
+### Atualizar
+
+Para atualizar master ou node para a versão mais recente, execute o script novamente e escolha a opção 3 ou 4. As configurações existentes são preservadas automaticamente.
+
+---
+
+## Pré-requisitos
+
+- [Docker](https://docs.docker.com/get-docker/) instalado (o script instala automaticamente se não encontrar)
+- Token de bot do Telegram — crie via [@BotFather](https://t.me/BotFather)
+- Seu `chat_id` do Telegram — obtenha via [@userinfobot](https://t.me/userinfobot)
+
+---
+
+## Imagens Docker
+
+As imagens são publicadas automaticamente no GitHub Container Registry a cada push na `main`:
+
+| Imagem | Descrição |
+|---|---|
+| `ghcr.io/maellldev/sentinel-monitor-master:latest` | Bot do Telegram + servidor WebSocket |
+| `ghcr.io/maellldev/sentinel-monitor-node:latest` | Agente de métricas para VPS |
 
 ---
 
@@ -40,148 +100,6 @@ Funciona com uma arquitetura **master/node**:
 - ⚡ **Instalação rápida de nodes** — o comando `/integrar` gera o `docker run` completo para copiar e colar na VPS
 - 🔐 **Acesso restrito** — bot responde apenas ao seu `chat_id`
 - 🔄 **Reconexão automática** — nodes reconectam ao master sem intervenção manual
-
----
-
-## Pré-requisitos
-
-- [Docker](https://docs.docker.com/get-docker/) e [Docker Compose](https://docs.docker.com/compose/install/) instalados
-- Token de bot do Telegram — crie um via [@BotFather](https://t.me/BotFather)
-- Seu `chat_id` do Telegram — obtenha via [@userinfobot](https://t.me/userinfobot)
-- IP público ou domínio do PC master acessível pelas VPS nodes
-
----
-
-## Imagens Docker
-
-As imagens são publicadas automaticamente no GitHub Container Registry a cada push na `main`:
-
-| Imagem | Descrição |
-|---|---|
-| `ghcr.io/maellldev/sentinel-monitor-master:latest` | Bot do Telegram + servidor WebSocket |
-| `ghcr.io/maellldev/sentinel-monitor-node:latest` | Agente de métricas para VPS |
-
-Para usar a imagem pré-buildada do node (sem precisar clonar o repositório):
-
-```bash
-docker run -d \
-  --name monitor-node \
-  --restart unless-stopped \
-  -e MASTER_WS_URL=ws://SEU_IP_MASTER:8765 \
-  -e API_KEY=SUA_API_KEY \
-  -e NODE_NAME=nome-da-vps \
-  --pid=host \
-  -v /proc:/host/proc:ro \
-  -v /sys:/host/sys:ro \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  ghcr.io/maellldev/sentinel-monitor-node:latest
-```
-
-Para atualizar um node para a versão mais recente:
-
-```bash
-docker pull ghcr.io/maellldev/sentinel-monitor-node:latest
-docker stop monitor-node && docker rm monitor-node
-# rode o docker run novamente com os mesmos parâmetros
-```
-
----
-
-## Instalação
-
-### 1. Clone o repositório
-
-```bash
-git clone https://github.com/MaelllDev/sentinel-monitor.git
-cd sentinel-monitor
-```
-
-### 2. Configure o `.env`
-
-```bash
-cp .env.example .env
-```
-
-Edite o `.env` com seus valores:
-
-```env
-# Token do bot do Telegram (obtido via @BotFather)
-TELEGRAM_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
-
-# Seu chat_id do Telegram (obtido via @userinfobot)
-ALLOWED_CHAT_ID=987654321
-
-# Chave de autenticação entre master e nodes — gere uma chave segura:
-# python -c "import secrets; print(secrets.token_hex(32))"
-API_KEY=troque-por-uma-chave-aleatoria-segura
-
-# IP público ou domínio do master (usado no comando /integrar)
-MASTER_HOST=SEU_IP_PUBLICO
-
-# Porta do servidor WebSocket
-WS_PORT=8765
-```
-
-> 💡 **Gere uma API key segura:**
-> ```bash
-> python -c "import secrets; print(secrets.token_hex(32))"
-> ```
-
-### 3. Suba o master
-
-```bash
-docker compose up -d master
-```
-
-O master sobe automaticamente junto com um **node local** que monitora o próprio PC master.
-
-### 4. Verifique
-
-```bash
-docker compose logs -f master
-```
-
-O bot estará online. Envie `/start` no Telegram para confirmar.
-
----
-
-## Adicionando nodes (VPS)
-
-### Opção A — Comando gerado pelo bot (recomendado)
-
-No Telegram, envie `/integrar`. O bot responde com o comando `docker run` completo, já com a `API_KEY` e o IP do master preenchidos. Basta copiar e colar na VPS.
-
-### Opção B — Manual
-
-Na VPS, execute:
-
-```bash
-docker run -d \
-  --name monitor-node \
-  --restart unless-stopped \
-  -e MASTER_WS_URL=ws://SEU_IP_MASTER:8765 \
-  -e API_KEY=SUA_API_KEY \
-  -e NODE_NAME=nome-da-vps \
-  -e METRICS_INTERVAL=10 \
-  -e ALERT_CPU=90 \
-  -e ALERT_MEMORY=90 \
-  -e ALERT_DISK=90 \
-  --pid=host \
-  -v /proc:/host/proc:ro \
-  -v /sys:/host/sys:ro \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  ghcr.io/maellldev/sentinel-monitor-node:latest
-```
-
-### Opção C — Script de instalação
-
-Para instalação sem Docker (systemd service):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/MaelllDev/sentinel-monitor/main/install-node.sh | bash
-```
-
-O script pedirá interativamente o URL do master e a API key.
 
 ---
 
@@ -249,17 +167,16 @@ O script pedirá interativamente o URL do master e a API key.
 O node monitora CPU, RAM e disco continuamente. Quando o uso ultrapassa o threshold configurado, um alerta é enviado automaticamente no Telegram.
 
 - Thresholds padrão: **90%** para CPU, RAM e disco
-- Configure via variáveis `ALERT_CPU`, `ALERT_MEMORY`, `ALERT_DISK` no `.env` do node
+- Configure via variáveis `ALERT_CPU`, `ALERT_MEMORY`, `ALERT_DISK`
 - Cooldown de **5 minutos** por métrica para evitar spam
 
 ---
 
 ## Segurança
 
-- O bot responde **somente** ao `ALLOWED_CHAT_ID` configurado no `.env`
+- O bot responde **somente** ao `ALLOWED_CHAT_ID` configurado
 - Nodes se autenticam com `API_KEY` no handshake WebSocket — conexões sem a chave são rejeitadas
 - Nunca exponha a porta WebSocket diretamente sem firewall em produção
-- A `API_KEY` **não** deve ser commitada no repositório — use o `.env` local
 
 ---
 
@@ -278,13 +195,12 @@ sentinel-monitor/
 │   ├── requirements.txt
 │   ├── agent.py        # Agente WebSocket que roda na VPS
 │   └── metrics.py      # Coleta de métricas via psutil
-├── docker-compose.yml  # Sobe master + node local juntos
-├── setup.sh            # Setup interativo do master
-├── install-node.sh     # Instalação do node via systemd (sem Docker)
-├── uninstall.sh        # Remoção completa do node
-├── monitor.service     # Unit file do systemd para o node
+├── .github/
+│   └── workflows/
+│       └── docker-publish.yml  # CI: build e push automático no ghcr.io
+├── docker-compose.yml  # Sobe master + node local (uso avançado)
+├── setup.sh            # Setup interativo unificado
 ├── .env.example        # Template de configuração
-├── .gitignore
 └── README.md
 ```
 
