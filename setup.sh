@@ -19,9 +19,17 @@ warn()    { echo -e "${YELLOW}[AVISO]${RESET} $*"; }
 error()   { echo -e "${RED}[ERRO]${RESET}  $*"; exit 1; }
 title()   { echo; echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"; echo -e "${BOLD}  $*${RESET}"; echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"; echo; }
 
-# Detect if running inside a Docker container
+# Detect if running inside a Docker/LXC container
 is_inside_container() {
-    [ -f /.dockerenv ]
+    # Check for Docker container marker
+    if [ -f /.dockerenv ]; then
+        return 0
+    fi
+    # Check cgroup for docker/lxc indicators
+    if grep -qi 'docker\|lxc' /proc/1/cgroup 2>/dev/null; then
+        return 0
+    fi
+    return 1
 }
 
 ask() {
@@ -79,6 +87,20 @@ if ! command -v docker &>/dev/null; then
     ok "Docker instalado."
 fi
 ok "Docker $(docker --version | grep -oP '\d+\.\d+\.\d+' | head -1)"
+
+# ── Verificar se está dentro de container (que impede gerenciamento) ──────────
+if is_inside_container; then
+    title "Atenção: execução dentro de container"
+    echo -e " ${YELLOW}Este script está sendo executado dentro de um container Docker/LXC.${RESET}"
+    echo -e " Para instalar/atualizar/remover o Sentinel Monitor, execute este script"
+    echo -e " diretamente no ${BOLD}host Docker${RESET} (não dentro de um container)."
+    echo
+    echo -e " Se você estava dentro do container ${CYAN}monitor-node${RESET} ou"
+    echo -e " ${CYAN}monitor-master${RESET}, faça:"
+    echo -e "   1. Sair do container: ${CYAN}exit${RESET}"
+    echo -e "   2. Rodar o script no host: ${CYAN}bash <(curl -fsSL https://raw.githubusercontent.com/MaelllDev/sentinel-monitor/main/setup.sh)${RESET}"
+    exit 1
+fi
 
 # ── Menu principal ───────────────────────────────────────────────────────────
 title "O que deseja fazer?"
