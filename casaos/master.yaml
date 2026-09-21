@@ -1,0 +1,105 @@
+name: monitor-master
+services:
+  master:
+    image: ghcr.io/maellldev/sentinel-monitor-master:latest
+    container_name: monitor-master
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${WS_PORT:-8765}:8765"
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - ALLOWED_CHAT_ID=${ALLOWED_CHAT_ID}
+      - API_KEY=${API_KEY}
+      - WS_PORT=8765
+      - MASTER_HOST=${MASTER_HOST:-localhost}
+      - CASAOS_URL=${CASAOS_URL:-}
+      - CASAOS_USER=${CASAOS_USER:-}
+      - CASAOS_PASSWORD=${CASAOS_PASSWORD:-}
+    networks:
+      - monitor-net
+  node-local:
+    image: ghcr.io/maellldev/sentinel-monitor-node:latest
+    container_name: monitor-node-local
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - MASTER_WS_URL=ws://master:8765
+      - API_KEY=${API_KEY}
+      - NODE_NAME=${NODE_NAME:-master-local}
+      - METRICS_INTERVAL=${METRICS_INTERVAL:-10}
+      - ALERT_CPU=${ALERT_CPU:-90}
+      - ALERT_MEMORY=${ALERT_MEMORY:-90}
+      - ALERT_DISK=${ALERT_DISK:-90}
+    depends_on:
+      - master
+    networks:
+      - monitor-net
+networks:
+  monitor-net:
+    driver: bridge
+x-casaos:
+  id: com.maellldev.sentinel-monitor
+  main: master
+  index: /
+  port_map: ""
+  scheme: http
+  icon: https://raw.githubusercontent.com/MaelllDev/sentinel-monitor/main/logo.png
+  title:
+    en_US: Sentinel Monitor Master
+  tagline:
+    en_US: Bot do Telegram + WebSocket para monitoramento de VPS
+  description:
+    en_US: Sistema de monitoramento remoto de servidores VPS via Telegram com arquitetura master/node.
+  author: MaelllDev
+  developer: MaelllDev
+  category: Networking
+  architectures:
+    - amd64
+    - arm64
+  version: "1.0.0"
+  update_at: "2026-09-20"
+  envs:
+    - container: TELEGRAM_TOKEN
+      description:
+        en_US: Token do bot do Telegram (crie via @BotFather)
+    - container: ALLOWED_CHAT_ID
+      description:
+        en_US: Chat ID do Telegram (obtenha via @userinfobot)
+    - container: API_KEY
+      description:
+        en_US: Chave de autenticação para comunicação master-node
+    - container: MASTER_HOST
+      description:
+        en_US: IP público ou local deste servidor
+    - container: WS_PORT
+      description:
+        en_US: Porta do servidor WebSocket
+    - container: NODE_NAME
+      description:
+        en_US: Nome deste servidor no monitor
+    - container: METRICS_INTERVAL
+      description:
+        en_US: Intervalo de métricas em segundos
+    - container: ALERT_CPU
+      description:
+        en_US: Threshold de CPU para alertas (%)
+    - container: ALERT_MEMORY
+      description:
+        en_US: Threshold de RAM para alertas (%)
+    - container: ALERT_DISK
+      description:
+        en_US: Threshold de disco para alertas (%)
+    - container: CASAOS_URL
+      description:
+        en_US: URL do CasaOS (deixe vazio para desativar)
+    - container: CASAOS_USER
+      description:
+        en_US: Usuário do CasaOS
+    - container: CASAOS_PASSWORD
+      description:
+        en_US: Senha do CasaOS

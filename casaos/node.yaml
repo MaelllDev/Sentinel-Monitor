@@ -1,0 +1,62 @@
+name: monitor-node
+services:
+  node:
+    image: ghcr.io/maellldev/sentinel-monitor-node:latest
+    container_name: monitor-node
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - MASTER_WS_URL=${MASTER_WS_URL}
+      - API_KEY=${API_KEY}
+      - NODE_NAME=${NODE_NAME:-minha-vps}
+      - METRICS_INTERVAL=${METRICS_INTERVAL:-10}
+      - ALERT_CPU=${ALERT_CPU:-90}
+      - ALERT_MEMORY=${ALERT_MEMORY:-90}
+      - ALERT_DISK=${ALERT_DISK:-90}
+x-casaos:
+  id: com.maellldev.sentinel-monitor-node
+  main: node
+  index: /
+  port_map: ""
+  scheme: http
+  icon: https://raw.githubusercontent.com/MaelllDev/sentinel-monitor/main/logo.png
+  title:
+    en_US: Sentinel Monitor Node
+  tagline:
+    en_US: Agente de métricas para monitoramento de VPS
+  description:
+    en_US: Agente leve que coleta métricas do sistema (CPU, RAM, disco, rede) e envia ao master via WebSocket.
+  author: MaelllDev
+  developer: MaelllDev
+  category: Networking
+  architectures:
+    - amd64
+    - arm64
+  version: "1.0.0"
+  update_at: "2026-09-20"
+  envs:
+    - container: MASTER_WS_URL
+      description:
+        en_US: URL WebSocket do master (ex: ws://ip-do-master:8765)
+    - container: API_KEY
+      description:
+        en_US: Chave de autenticação (mesma configurada no master)
+    - container: NODE_NAME
+      description:
+        en_US: Nome amigável desta VPS
+    - container: METRICS_INTERVAL
+      description:
+        en_US: Intervalo de envio de métricas em segundos
+    - container: ALERT_CPU
+      description:
+        en_US: Threshold de CPU para alertas (%)
+    - container: ALERT_MEMORY
+      description:
+        en_US: Threshold de RAM para alertas (%)
+    - container: ALERT_DISK
+      description:
+        en_US: Threshold de disco para alertas (%)
