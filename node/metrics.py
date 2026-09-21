@@ -218,15 +218,78 @@ def _system_info() -> dict:
 
 
 def _docker_containers() -> list:
-    """Lista contêineres Docker via socket."""
+    """Lista contêineres Docker.
+
+    Tenta primeiro via Docker API REST no Unix socket (/var/run/docker.sock),
+    que funciona mesmo sem o binário 'docker' instalado e não sofre com
+    problemas de permissão de grupo. Cai para o binário 'docker' como fallback.
+    """
+    # ── Tentativa 1: Docker API via Unix socket ──────────────────────────────
+    DOCKER_SOCKET = "/var/run/docker.sock"
+    if os.path.exists(DOCKER_SOCKET):
+        try:
+            import http.client
+
+            conn = http.client.HTTPConnection("localhost")
+            # Monkey-patch para usar o Unix socket
+            import socket as _socket
+
+            class _UnixHTTPConnection(http.client.HTTPConnection):
+                def connect(self):
+                    self.sock = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
+                    self.sock.settimeout(10)
+                    self.sock.connect(DOCKER_SOCKET)
+
+            conn = _UnixHTTPConnection("localhost")
+            conn.request("GET", "/containers/json?all=1")
+            resp = conn.getresponse()
+            if resp.status == 200:
+                import json as _json
+                data = _json.loads(resp.read().decode())
+                containers = []
+                for c in data:
+                    # Nome: remove a barra inicial que a API retorna
+                    names = c.get("Names", [""])
+                    name = names[0].lstrip("/") if names else ""
+                    state = c.get("State", "")
+                    status = c.get("Status", state)
+                    image = c.get("Image", "")
+                    # Monta string de portas no mesmo formato do `docker ps`
+                    ports_raw = c.get("Ports", [])
+                    port_parts = []
+                    for p in ports_raw:
+                        if p.get("PublicPort"):
+                            port_parts.append(
+                                f"{p.get('IP', '')}:{p['PublicPort']}->{p['PrivatePort']}/{p.get('Type', 'tcp')}"
+                            )
+                        else:
+                            port_parts.append(f"{p['PrivatePort']}/{p.get('Type', 'tcp')}")
+                    ports = ", ".join(port_parts)
+                    containers.append({
+                        "name": name,
+                        "status": status,
+                        "image": image,
+                        "ports": ports,
+                    })
+                conn.close()
+                return containers
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Docker API via socket falhou: {e}")
+
+    # ── Tentativa 2: binário docker ──────────────────────────────────────────
     if not shutil.which("docker"):
+        logger.warning("Binário 'docker' não encontrado e socket indisponível")
         return []
     try:
         result = subprocess.run(
             ["docker", "ps", "-a", "--format",
              "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.Ports}}"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=10,
         )
+        if result.returncode != 0:
+            logger.warning(f"docker ps retornou erro: {result.stderr.strip()}")
+            return []
         containers = []
         for line in result.stdout.strip().split("\n"):
             if not line:
@@ -240,7 +303,7 @@ def _docker_containers() -> list:
             })
         return containers
     except Exception as e:
-        logger.warning(f"Erro ao listar Docker: {e}")
+        logger.warning(f"Erro ao listar Docker via CLI: {e}")
         return []
 
 
@@ -328,9 +391,16 @@ def collect_metrics() -> dict:
 
 def collect_apps() -> str:
     """Texto formatado de contêineres Docker."""
+    DOCKER_SOCKET = "/var/run/docker.sock"
     containers = _docker_containers()
     if not containers:
-        return "Docker não disponível ou nenhum contêiner encontrado."
+        if not os.path.exists(DOCKER_SOCKET):
+            return (
+                "❌ Socket do Docker não encontrado.\n"
+                "Monte o socket ao iniciar o node:\n"
+                "  -v /var/run/docker.sock:/var/run/docker.sock"
+            )
+        return "Docker disponível mas nenhum contêiner encontrado."
 
     lines = [f"{'NOME':<25} {'STATUS':<20} {'IMAGEM':<30} {'PORTAS'}"]
     lines.append("─" * 90)
