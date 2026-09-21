@@ -47,6 +47,7 @@ O script apresenta um menu interativo:
   [4] Atualizar NODE
   [5] Remover MASTER
   [6] Remover NODE
+  [7] Remover TUDO (desinstalação completa)
 ```
 
 ### Instalar o Master

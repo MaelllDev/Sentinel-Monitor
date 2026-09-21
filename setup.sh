@@ -73,6 +73,7 @@ echo "  [3] Atualizar MASTER"
 echo "  [4] Atualizar NODE"
 echo "  [5] Remover MASTER"
 echo "  [6] Remover NODE"
+echo "  [7] Remover Tudo (desinstalar bot e containers)"
 echo
 ask "Escolha" "1"
 ACTION="$REPLY"
@@ -493,17 +494,20 @@ remove_master() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# [6] REMOVER NODE
+# [7] REMOVER TUDO (desinstalar bot e containers)
 # ─────────────────────────────────────────────────────────────────────────────
-remove_node() {
+remove_all() {
     if is_inside_container; then
         error "Este script está sendo executado dentro de um container Docker. Para gerenciar containers, execute este script no host Docker."
     fi
-    title "Remover NODE"
-    confirm "Tem certeza? Isso vai parar e remover o node desta VPS." || { info "Cancelado."; exit 0; }
-    remove_container "monitor-node"
+    title "Remover TUDO (desinstalar)"
+    confirm "Tem certeza? Isso vai parar, remover todos os containers e limpar o setup (excluindo .env e arquivos do bot)." || { info "Cancelado."; exit 0; }
+    remove_container "monitor-master"
     remove_container "monitor-node-local"
-    ok "Node removido."
+    remove_container "monitor-node"
+    docker network rm monitor-net 2>/dev/null || true
+    rm -f .env .env.example .gitignore
+    ok "Setup Sentinel Monitor desinstalado completamente."
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -516,5 +520,6 @@ case "$ACTION" in
     4) update_node    ;;
     5) remove_master  ;;
     6) remove_node    ;;
+    7) remove_all     ;;
     *) error "Opção inválida: ${ACTION}" ;;
 esac
