@@ -41,6 +41,7 @@ ask() {
     else
         read -r REPLY < /dev/tty
     fi
+    REPLY="${REPLY%$'\r'}"
     [ -z "$REPLY" ] && REPLY="$default"
 }
 
@@ -114,7 +115,6 @@ echo "  [7] Remover Tudo (desinstalar bot e containers)"
 echo
 ask "Escolha" "1"
 ACTION="$REPLY"
-echo "[DEBUG] REPLY='$REPLY' ACTION='$ACTION'" >&2
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FUNÇÕES AUXILIARES
