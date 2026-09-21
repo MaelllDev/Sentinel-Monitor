@@ -63,22 +63,14 @@ ask_menu() {
 
 ask_secret() {
     echo -ne "${BOLD}$1${RESET}: "
-    if [ -t 0 ]; then
-        read -rs REPLY
-    else
-        read -rs REPLY < /dev/tty
-    fi
+    read -rs REPLY
     echo
 }
 
 confirm() {
     echo -ne "${BOLD}$1${RESET} [${GREEN}s${RESET}/${RED}n${RESET}]: "
     local ans
-    if [ -t 0 ]; then
-        read -r ans
-    else
-        read -r ans < /dev/tty
-    fi
+    read -r ans
     [[ "$ans" =~ ^[sSyY] ]]
 }
 
