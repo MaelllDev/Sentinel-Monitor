@@ -51,11 +51,7 @@ ask() {
 ask_menu() {
     while true; do
         echo -ne "${BOLD}Escolha uma opção [1-7]${RESET}: "
-        if [ -t 0 ]; then
-            read -r REPLY || REPLY=""
-        else
-            read -r REPLY < /dev/tty || REPLY=""
-        fi
+        read -r REPLY || REPLY=""
         REPLY="${REPLY%$'\r'}"
 
         if [[ "$REPLY" =~ ^[1-7]$ ]]; then
@@ -196,9 +192,15 @@ install_master() {
         ALLOWED_CHAT_ID="$REPLY"
     done
 
-    # Detecta IP local
-    DETECTED_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || \
-                  ip -4 addr show | grep -oP '(?<=inet )\d+\.\d+\.\d+\.\d+' | grep -v '^127\.' | head -1)
+    # Detecta IP local sem interromper a instalação se a ferramenta não existir.
+    DETECTED_IP=""
+    if command -v hostname &>/dev/null; then
+        DETECTED_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
+    fi
+    if [ -z "$DETECTED_IP" ] && command -v ip &>/dev/null; then
+        DETECTED_IP=$(ip -4 addr show 2>/dev/null \
+            | awk '/inet / && $2 !~ /^127\./ {sub(/\/.*/, "", $2); print $2; exit}' || true)
+    fi
     ask "IP público ou local deste servidor (usado pelos nodes)" "${DETECTED_IP:-}"
     MASTER_HOST="$REPLY"
     while [ -z "$MASTER_HOST" ]; do
