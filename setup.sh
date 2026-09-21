@@ -39,13 +39,9 @@ ask() {
     local prompt="$1" default="$2"
     [ -n "$default" ] && echo -ne "${BOLD}${prompt}${RESET} [${CYAN}${default}${RESET}]: " \
                       || echo -ne "${BOLD}${prompt}${RESET}: "
-    if [ -t 0 ]; then
-        read -r REPLY
-    else
-        read -r REPLY < /dev/tty
-    fi
+    read -r REPLY
     REPLY="${REPLY%$'\r'}"
-    [ -z "$REPLY" ] && REPLY="$default"
+    REPLY="${REPLY:-$default}"
 }
 
 ask_menu() {
@@ -71,7 +67,10 @@ confirm() {
     echo -ne "${BOLD}$1${RESET} [${GREEN}s${RESET}/${RED}n${RESET}]: "
     local ans
     read -r ans
-    [[ "$ans" =~ ^[sSyY] ]]
+    if [[ "$ans" =~ ^[sSyY] ]]; then
+        return 0
+    fi
+    return 1
 }
 
 # ── Banner ───────────────────────────────────────────────────────────────────
