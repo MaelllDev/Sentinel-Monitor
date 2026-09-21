@@ -6,6 +6,9 @@
 
 set -e
 
+# Força a leitura interativa pelo terminal, mesmo se o script for executado por pipe/process substitution.
+exec < /dev/tty
+
 MASTER_IMAGE="ghcr.io/maellldev/sentinel-monitor-master:latest"
 NODE_IMAGE="ghcr.io/maellldev/sentinel-monitor-node:latest"
 
@@ -43,6 +46,23 @@ ask() {
     fi
     REPLY="${REPLY%$'\r'}"
     [ -z "$REPLY" ] && REPLY="$default"
+}
+
+ask_menu() {
+    while true; do
+        echo -ne "${BOLD}Escolha uma opção [1-7]${RESET}: "
+        if [ -t 0 ]; then
+            read -r REPLY || REPLY=""
+        else
+            read -r REPLY < /dev/tty || REPLY=""
+        fi
+        REPLY="${REPLY%$'\r'}"
+
+        if [[ "$REPLY" =~ ^[1-7]$ ]]; then
+            return 0
+        fi
+        warn "Opção inválida. Digite apenas um número de 1 a 7."
+    done
 }
 
 ask_secret() {
@@ -113,7 +133,7 @@ echo "  [5] Remover MASTER"
 echo "  [6] Remover NODE"
 echo "  [7] Remover Tudo (desinstalar bot e containers)"
 echo
-ask "Escolha" "1"
+ask_menu
 ACTION="$REPLY"
 
 # ─────────────────────────────────────────────────────────────────────────────
