@@ -19,6 +19,11 @@ warn()    { echo -e "${YELLOW}[AVISO]${RESET} $*"; }
 error()   { echo -e "${RED}[ERRO]${RESET}  $*"; exit 1; }
 title()   { echo; echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"; echo -e "${BOLD}  $*${RESET}"; echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"; echo; }
 
+# Detect if running inside a Docker container
+is_inside_container() {
+    [ -f /.dockerenv ]
+}
+
 ask() {
     local prompt="$1" default="$2"
     [ -n "$default" ] && echo -ne "${BOLD}${prompt}${RESET} [${CYAN}${default}${RESET}]: " \
@@ -105,6 +110,9 @@ show_logs() {
 # [1] INSTALAR MASTER
 # ─────────────────────────────────────────────────────────────────────────────
 install_master() {
+    if is_inside_container; then
+        error "Este script está sendo executado dentro de um container Docker. Para gerenciar containers, execute este script no host Docker."
+    fi
     title "Instalação do MASTER"
 
     # ── Coleta de configurações ──────────────────────────────────────────────
@@ -239,6 +247,9 @@ install_master() {
 # [2] INSTALAR NODE
 # ─────────────────────────────────────────────────────────────────────────────
 install_node() {
+    if is_inside_container; then
+        error "Este script está sendo executado dentro de um container Docker. Para gerenciar containers, execute este script no host Docker."
+    fi
     title "Instalação do NODE"
 
     ask "Nome desta VPS" "$(hostname 2>/dev/null || echo minha-vps)"
@@ -309,6 +320,9 @@ install_node() {
 # [3] ATUALIZAR MASTER
 # ─────────────────────────────────────────────────────────────────────────────
 update_master() {
+    if is_inside_container; then
+        error "Este script está sendo executado dentro de um container Docker. Para gerenciar containers, execute este script no host Docker."
+    fi
     title "Atualização do MASTER"
 
     # Salva envs do container atual antes de remover
@@ -398,6 +412,9 @@ update_master() {
 # [4] ATUALIZAR NODE
 # ─────────────────────────────────────────────────────────────────────────────
 update_node() {
+    if is_inside_container; then
+        error "Este script está sendo executado dentro de um container Docker. Para gerenciar containers, execute este script no host Docker."
+    fi
     title "Atualização do NODE"
 
     # Detecta nome do container (monitor-node ou monitor-node-local)
@@ -464,6 +481,9 @@ update_node() {
 # [5] REMOVER MASTER
 # ─────────────────────────────────────────────────────────────────────────────
 remove_master() {
+    if is_inside_container; then
+        error "Este script está sendo executado dentro de um container Docker. Para gerenciar containers, execute este script no host Docker."
+    fi
     title "Remover MASTER"
     confirm "Tem certeza? Isso vai parar e remover o bot e o node local." || { info "Cancelado."; exit 0; }
     remove_container "monitor-master"
@@ -476,6 +496,9 @@ remove_master() {
 # [6] REMOVER NODE
 # ─────────────────────────────────────────────────────────────────────────────
 remove_node() {
+    if is_inside_container; then
+        error "Este script está sendo executado dentro de um container Docker. Para gerenciar containers, execute este script no host Docker."
+    fi
     title "Remover NODE"
     confirm "Tem certeza? Isso vai parar e remover o node desta VPS." || { info "Cancelado."; exit 0; }
     remove_container "monitor-node"
