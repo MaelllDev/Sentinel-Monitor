@@ -46,22 +46,32 @@ ask() {
 
 ask_menu() {
     while true; do
-        echo -ne "${BOLD}Escolha uma opção [1-7]${RESET}: "
+    echo -ne "${BOLD}Escolha uma opção [1-8]${RESET}: "
         read -r REPLY || REPLY=""
         REPLY="${REPLY%$'\r'}"
 
-        if [[ "$REPLY" =~ ^[1-7]$ ]]; then
+        if [[ "$REPLY" =~ ^[1-8]$ ]]; then
             return 0
         fi
-        warn "Opção inválida. Digite apenas um número de 1 a 7."
+        warn "Opção inválida. Digite apenas um número de 1 a 8."
     done
 }
 
 ask_secret() {
     echo -ne "${BOLD}$1${RESET}: "
     read -rs REPLY
+    REPLY="${REPLY%$'\r'}"
     echo
 }
+
+  ask_secret_keep() {
+    local current="$2"
+    echo -ne "${BOLD}$1${RESET} (Enter para manter): "
+    read -rs REPLY
+    REPLY="${REPLY%$'\r'}"
+    echo
+    REPLY="${REPLY:-$current}"
+  }
 
 confirm() {
     echo -ne "${BOLD}$1${RESET} [${GREEN}s${RESET}/${RED}n${RESET}]: "
@@ -119,6 +129,7 @@ echo "  [4] Atualizar NODE"
 echo "  [5] Remover MASTER"
 echo "  [6] Remover NODE"
 echo "  [7] Remover Tudo (desinstalar bot e containers)"
+echo "  [8] Configurar ENV de um container existente"
 echo
 ask_menu
 ACTION="$REPLY"
@@ -504,6 +515,62 @@ casaos_register_app() {
     fi
 }
 
+  start_master_stack() {
+    info "Subindo master..."
+    docker run -d \
+      --name monitor-master \
+      --restart unless-stopped \
+      --network monitor-net \
+      -p "${WS_PORT}:8765" \
+      -e TELEGRAM_TOKEN="$TELEGRAM_TOKEN" \
+      -e ALLOWED_CHAT_ID="$ALLOWED_CHAT_ID" \
+      -e API_KEY="$API_KEY" \
+      -e WS_PORT=8765 \
+      -e MASTER_HOST="$MASTER_HOST" \
+      -e CASAOS_URL="$CASAOS_URL" \
+      -e CASAOS_USER="$CASAOS_USER" \
+      -e CASAOS_PASSWORD="$CASAOS_PASSWORD" \
+      "$MASTER_IMAGE"
+
+    if [ "${START_LOCAL_NODE:-yes}" = "yes" ]; then
+      info "Subindo node local..."
+      docker run -d \
+        --name monitor-node-local \
+        --restart unless-stopped \
+        --network monitor-net \
+        --pid=host \
+        -v /proc:/host/proc:ro \
+        -v /sys:/host/sys:ro \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -e MASTER_WS_URL="ws://monitor-master:8765" \
+        -e API_KEY="$API_KEY" \
+        -e NODE_NAME="$NODE_NAME" \
+        -e METRICS_INTERVAL="$METRICS_INTERVAL" \
+        -e ALERT_CPU="$ALERT_CPU" \
+        -e ALERT_MEMORY="$ALERT_MEMORY" \
+        -e ALERT_DISK="$ALERT_DISK" \
+        "$NODE_IMAGE"
+    fi
+  }
+
+  start_or_register_master() {
+    WS_PORT="${WS_PORT:-8765}"
+    if [ -n "$CASAOS_URL" ]; then
+      info "Registrando o Compose no CasaOS..."
+      local casaos_token=""
+      casaos_token=$(casaos_login "$CASAOS_URL" "$CASAOS_USER" "$CASAOS_PASSWORD") || true
+      if [ -n "$casaos_token" ] && casaos_register_app "$CASAOS_URL" "$casaos_token" "Sentinel Monitor"; then
+        ok "Master e node local gerenciados pelo CasaOS."
+        return 0
+      fi
+      warn "Não foi possível registrar no CasaOS. Usando containers Docker diretamente."
+    fi
+
+    docker network inspect monitor-net &>/dev/null || docker network create monitor-net
+    start_master_stack
+    ok "Master e node local rodando!"
+  }
+
 # ─────────────────────────────────────────────────────────────────────────────
 # [1] INSTALAR MASTER
 # ─────────────────────────────────────────────────────────────────────────────
@@ -598,53 +665,8 @@ install_master() {
     remove_container "monitor-master"
     remove_container "monitor-node-local"
 
-    # Cria rede se não existir
-    docker network inspect monitor-net &>/dev/null || docker network create monitor-net
-
-    info "Subindo master..."
-    docker run -d \
-        --name monitor-master \
-        --restart unless-stopped \
-        --network monitor-net \
-        -p "${WS_PORT}:8765" \
-        -e TELEGRAM_TOKEN="$TELEGRAM_TOKEN" \
-        -e ALLOWED_CHAT_ID="$ALLOWED_CHAT_ID" \
-        -e API_KEY="$API_KEY" \
-        -e WS_PORT=8765 \
-        -e MASTER_HOST="$MASTER_HOST" \
-        -e CASAOS_URL="$CASAOS_URL" \
-        -e CASAOS_USER="$CASAOS_USER" \
-        -e CASAOS_PASSWORD="$CASAOS_PASSWORD" \
-        "$MASTER_IMAGE"
-
-    info "Subindo node local..."
-    docker run -d \
-        --name monitor-node-local \
-        --restart unless-stopped \
-        --network monitor-net \
-        --pid=host \
-        -v /proc:/host/proc:ro \
-        -v /sys:/host/sys:ro \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        -e MASTER_WS_URL="ws://monitor-master:8765" \
-        -e API_KEY="$API_KEY" \
-        -e NODE_NAME="$NODE_NAME" \
-        -e METRICS_INTERVAL="$METRICS_INTERVAL" \
-        -e ALERT_CPU="$ALERT_CPU" \
-        -e ALERT_MEMORY="$ALERT_MEMORY" \
-        -e ALERT_DISK="$ALERT_DISK" \
-        "$NODE_IMAGE"
-
-    ok "Master e node local rodando!"
-
-    if [ -n "$CASAOS_URL" ]; then
-        info "Registrando no CasaOS..."
-        local casaos_token
-        casaos_token=$(casaos_login "$CASAOS_URL" "$CASAOS_USER" "$CASAOS_PASSWORD") || warn "Falha no login do CasaOS."
-        if [ -n "$casaos_token" ]; then
-            casaos_register_app "$CASAOS_URL" "$casaos_token" "Sentinel Monitor" || true
-        fi
-    fi
+    START_LOCAL_NODE=yes
+    start_or_register_master
 
     echo
     echo -e " ${BOLD}API Key (guarde para adicionar nodes):${RESET}"
@@ -681,6 +703,8 @@ install_node() {
     MASTER_PORT="$REPLY"
     MASTER_WS_URL="ws://${MASTER_IP}:${MASTER_PORT}"
 
+    echo -e " Use exatamente a mesma API Key gerada na instalação do master."
+    echo -e " Para consultar no master: ${CYAN}docker inspect monitor-master --format '{{range .Config.Env}}{{println .}}{{end}}' | grep API_KEY${RESET}"
     ask_secret "API Key (mesma do master)"
     API_KEY="$REPLY"
     while [ -z "$API_KEY" ]; do
@@ -780,54 +804,9 @@ update_master() {
     remove_container "monitor-master"
     remove_container "monitor-node-local"
 
-    docker network inspect monitor-net &>/dev/null || docker network create monitor-net
-
-    info "Subindo master atualizado..."
-    docker run -d \
-        --name monitor-master \
-        --restart unless-stopped \
-        --network monitor-net \
-        -p "${WS_PORT:-8765}:8765" \
-        -e TELEGRAM_TOKEN="$TELEGRAM_TOKEN" \
-        -e ALLOWED_CHAT_ID="$ALLOWED_CHAT_ID" \
-        -e API_KEY="$API_KEY" \
-        -e WS_PORT="${WS_PORT:-8765}" \
-        -e MASTER_HOST="$MASTER_HOST" \
-        -e CASAOS_URL="$CASAOS_URL" \
-        -e CASAOS_USER="$CASAOS_USER" \
-        -e CASAOS_PASSWORD="$CASAOS_PASSWORD" \
-        "$MASTER_IMAGE"
-
-    if [ -n "$NODE_ENV_JSON" ]; then
-        info "Subindo node local atualizado..."
-        docker run -d \
-            --name monitor-node-local \
-            --restart unless-stopped \
-            --network monitor-net \
-            --pid=host \
-            -v /proc:/host/proc:ro \
-            -v /sys:/host/sys:ro \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -e MASTER_WS_URL="ws://monitor-master:8765" \
-            -e API_KEY="$API_KEY" \
-            -e NODE_NAME="${NODE_NAME:-master-local}" \
-            -e METRICS_INTERVAL="${METRICS_INTERVAL:-10}" \
-            -e ALERT_CPU="${ALERT_CPU:-90}" \
-            -e ALERT_MEMORY="${ALERT_MEMORY:-90}" \
-            -e ALERT_DISK="${ALERT_DISK:-90}" \
-            "$NODE_IMAGE"
-    fi
-
-    ok "Master atualizado e rodando!"
-
-    if [ -n "$CASAOS_URL" ]; then
-        info "Registrando no CasaOS..."
-        local casaos_token
-        casaos_token=$(casaos_login "$CASAOS_URL" "$CASAOS_USER" "$CASAOS_PASSWORD") || warn "Falha no login do CasaOS."
-        if [ -n "$casaos_token" ]; then
-            casaos_register_app "$CASAOS_URL" "$casaos_token" "Sentinel Monitor" || true
-        fi
-    fi
+    START_LOCAL_NODE=no
+    [ -n "$NODE_ENV_JSON" ] && START_LOCAL_NODE=yes
+    start_or_register_master
 
     show_logs "monitor-master"
 }
@@ -901,6 +880,141 @@ update_node() {
     show_logs "$NODE_CONTAINER"
 }
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # [8] CONFIGURAR ENV
+  # ─────────────────────────────────────────────────────────────────────────────
+  configure_env() {
+    if is_inside_container; then
+      error "Este script está sendo executado dentro de um container Docker. Para gerenciar containers, execute este script no host Docker."
+    fi
+    title "Configurar variáveis de ambiente"
+    echo "  [1] MASTER (bot + WebSocket)"
+    echo "  [2] NODE (agente de métricas)"
+    echo
+    ask "Qual container deseja configurar" "1"
+
+    if [ "$REPLY" = "1" ]; then
+      local container="monitor-master"
+      if ! docker inspect "$container" &>/dev/null; then
+        error "Container monitor-master não encontrado. Instale primeiro (opção 1)."
+      fi
+
+      local env_json
+      env_json=$(docker inspect "$container" --format '{{json .Config.Env}}')
+      get_config_env() {
+        echo "$env_json" | tr ',' '\n' | grep "^\"${1}=" | head -1 | sed 's/.*=//;s/"$//'
+      }
+
+      TELEGRAM_TOKEN=$(get_config_env TELEGRAM_TOKEN)
+      ALLOWED_CHAT_ID=$(get_config_env ALLOWED_CHAT_ID)
+      API_KEY=$(get_config_env API_KEY)
+      WS_PORT=$(get_config_env WS_PORT)
+      MASTER_HOST=$(get_config_env MASTER_HOST)
+      CASAOS_URL=$(get_config_env CASAOS_URL)
+      CASAOS_USER=$(get_config_env CASAOS_USER)
+      CASAOS_PASSWORD=$(get_config_env CASAOS_PASSWORD)
+
+      ask_secret_keep "Token do Telegram" "$TELEGRAM_TOKEN"
+      TELEGRAM_TOKEN="$REPLY"
+      ask "Chat ID do Telegram" "$ALLOWED_CHAT_ID"
+      ALLOWED_CHAT_ID="$REPLY"
+      ask_secret_keep "API Key" "$API_KEY"
+      API_KEY="$REPLY"
+      ask "IP público ou local deste servidor" "$MASTER_HOST"
+      MASTER_HOST="$REPLY"
+      ask "Porta WebSocket" "${WS_PORT:-8765}"
+      WS_PORT="$REPLY"
+      ask "URL do CasaOS (vazio para desativar)" "$CASAOS_URL"
+      CASAOS_URL="$REPLY"
+      ask "Usuário do CasaOS" "$CASAOS_USER"
+      CASAOS_USER="$REPLY"
+      ask_secret_keep "Senha do CasaOS" "$CASAOS_PASSWORD"
+      CASAOS_PASSWORD="$REPLY"
+
+      remove_container "$container"
+      docker run -d \
+        --name "$container" \
+        --restart unless-stopped \
+        --network monitor-net \
+        -p "${WS_PORT}:8765" \
+        -e TELEGRAM_TOKEN="$TELEGRAM_TOKEN" \
+        -e ALLOWED_CHAT_ID="$ALLOWED_CHAT_ID" \
+        -e API_KEY="$API_KEY" \
+        -e WS_PORT=8765 \
+        -e MASTER_HOST="$MASTER_HOST" \
+        -e CASAOS_URL="$CASAOS_URL" \
+        -e CASAOS_USER="$CASAOS_USER" \
+        -e CASAOS_PASSWORD="$CASAOS_PASSWORD" \
+        "$MASTER_IMAGE"
+      ok "ENV do MASTER atualizado."
+      return 0
+    fi
+
+    if [ "$REPLY" != "2" ]; then
+      error "Opção inválida. Escolha 1 para MASTER ou 2 para NODE."
+    fi
+
+    local node_container=""
+    for name in monitor-node monitor-node-local; do
+      if docker inspect "$name" &>/dev/null; then
+        node_container="$name"
+        break
+      fi
+    done
+    [ -n "$node_container" ] || error "Nenhum container de node encontrado. Instale primeiro (opção 2)."
+
+    local node_env_json
+    node_env_json=$(docker inspect "$node_container" --format '{{json .Config.Env}}')
+    get_config_env() {
+      echo "$node_env_json" | tr ',' '\n' | grep "^\"${1}=" | head -1 | sed 's/.*=//;s/"$//'
+    }
+
+    MASTER_WS_URL=$(get_config_env MASTER_WS_URL)
+    API_KEY=$(get_config_env API_KEY)
+    NODE_NAME=$(get_config_env NODE_NAME)
+    METRICS_INTERVAL=$(get_config_env METRICS_INTERVAL)
+    ALERT_CPU=$(get_config_env ALERT_CPU)
+    ALERT_MEMORY=$(get_config_env ALERT_MEMORY)
+    ALERT_DISK=$(get_config_env ALERT_DISK)
+    NETWORK=$(docker inspect "$node_container" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' | head -1)
+
+    ask "URL WebSocket do master" "$MASTER_WS_URL"
+    MASTER_WS_URL="$REPLY"
+    ask_secret_keep "API Key" "$API_KEY"
+    API_KEY="$REPLY"
+    ask "Nome desta VPS" "$NODE_NAME"
+    NODE_NAME="$REPLY"
+    ask "Intervalo de métricas (segundos)" "${METRICS_INTERVAL:-10}"
+    METRICS_INTERVAL="$REPLY"
+    ask "Alerta CPU (%)" "${ALERT_CPU:-90}"
+    ALERT_CPU="$REPLY"
+    ask "Alerta Memória (%)" "${ALERT_MEMORY:-90}"
+    ALERT_MEMORY="$REPLY"
+    ask "Alerta Disco (%)" "${ALERT_DISK:-90}"
+    ALERT_DISK="$REPLY"
+
+    remove_container "$node_container"
+    NETWORK_ARG=""
+    [ -n "$NETWORK" ] && [ "$NETWORK" != "bridge" ] && NETWORK_ARG="--network $NETWORK"
+    docker run -d \
+      --name "$node_container" \
+      --restart unless-stopped \
+      $NETWORK_ARG \
+      --pid=host \
+      -v /proc:/host/proc:ro \
+      -v /sys:/host/sys:ro \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -e MASTER_WS_URL="$MASTER_WS_URL" \
+      -e API_KEY="$API_KEY" \
+      -e NODE_NAME="$NODE_NAME" \
+      -e METRICS_INTERVAL="$METRICS_INTERVAL" \
+      -e ALERT_CPU="$ALERT_CPU" \
+      -e ALERT_MEMORY="$ALERT_MEMORY" \
+      -e ALERT_DISK="$ALERT_DISK" \
+      "$NODE_IMAGE"
+    ok "ENV do NODE atualizado."
+  }
+
 # ─────────────────────────────────────────────────────────────────────────────
 # [5] REMOVER MASTER
 # ─────────────────────────────────────────────────────────────────────────────
@@ -944,5 +1058,6 @@ case "$ACTION" in
     5) remove_master  ;;
     6) remove_node    ;;
     7) remove_all     ;;
+    8) configure_env  ;;
     *) error "Opção inválida: ${ACTION}" ;;
 esac

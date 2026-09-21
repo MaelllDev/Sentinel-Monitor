@@ -48,6 +48,7 @@ The script presents an interactive menu:
   [5] Remove MASTER
   [6] Remove NODE
   [7] Remove ALL (complete uninstall)
+  [8] Configure ENV for an existing container
 ```
 
 ### Install the Master
@@ -60,6 +61,8 @@ Run the script on the server that will host the bot. You'll need:
 
 The script configures everything interactively, pulls images from the registry, and starts the master along with a local node that monitors the host itself.
 
+If CasaOS integration is enabled during setup, the master and local node are installed through the CasaOS App. They will appear under Apps, where the Compose configuration and environment variables can be viewed and edited.
+
 ### Install a Node (VPS)
 
 Run the script on each VPS you want to monitor. You'll need the API key generated during master installation.
@@ -69,6 +72,12 @@ Or use `/integrar` in Telegram — the bot generates the complete `docker run` c
 ### Update
 
 To update master or node to the latest version, run the script again and choose option 3 or 4. Existing settings are preserved automatically.
+
+For an installation that was previously shown under “Aplicativo legado”, run option 3 after configuring the CasaOS URL and credentials. The setup removes the manually created containers and registers them as a CasaOS App.
+
+### Configure the environment
+
+To change the environment variables of an existing master or node without reinstalling it, run the script and choose option 8. Press Enter to keep the current value; secrets are requested without displaying them.
 
 ---
 
