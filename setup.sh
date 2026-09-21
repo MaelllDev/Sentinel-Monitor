@@ -160,7 +160,7 @@ casaos_login() {
     local resp
     resp=$(curl -sf -X POST "${url}/v1/users/login" \
         -H "Content-Type: application/json" \
-        -d "{\"username\":\"${user}\",\"password\":\"${pass}}"}" 2>/dev/null) || return 1
+        -d "{\"username\":\"${user}\",\"password\":\"${pass}\"}" 2>/dev/null) || return 1
     printf '%s' "$resp" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('data',{}).get('token',{}).get('access_token',''))" 2>/dev/null || return 1
 }
 
@@ -313,6 +313,162 @@ casaos_register_app() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CASAOS API — registro de apps como apps reais no painel do CasaOS
+# ─────────────────────────────────────────────────────────────────────────────
+casaos_login() {
+    local url="$1" user="$2" pass="$3"
+    local resp
+    resp=$(curl -sf -X POST "${url}/v1/users/login" \
+        -H "Content-Type: application/json" \
+        -d "{\"username\":\"${user}\",\"password\":\"${pass}\"}" 2>/dev/null) || return 1
+    local token
+    token=$(printf '%s' "$resp" | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('token',{}).get('access_token',''))" 2>/dev/null) || return 1
+    printf '%s' "$token"
+}
+
+generate_casaos_compose() {
+    cat << 'COMPOSEEOF'
+name: monitor-master
+services:
+  master:
+    image: __MASTER_IMAGE__
+    container_name: monitor-master
+    restart: unless-stopped
+    ports:
+      - "__WS_PORT__:8765"
+    environment:
+      - TELEGRAM_TOKEN=__TELEGRAM_TOKEN__
+      - ALLOWED_CHAT_ID=__ALLOWED_CHAT_ID__
+      - API_KEY=__API_KEY__
+      - WS_PORT=8765
+      - MASTER_HOST=__MASTER_HOST__
+      - CASAOS_URL=__CASAOS_URL__
+      - CASAOS_USER=__CASAOS_USER__
+      - CASAOS_PASSWORD=__CASAOS_PASSWORD__
+    networks:
+      - monitor-net
+  node-local:
+    image: __NODE_IMAGE__
+    container_name: monitor-node-local
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - MASTER_WS_URL=ws://master:8765
+      - API_KEY=__API_KEY__
+      - NODE_NAME=__NODE_NAME__
+      - METRICS_INTERVAL=__METRICS_INTERVAL__
+      - ALERT_CPU=__ALERT_CPU__
+      - ALERT_MEMORY=__ALERT_MEMORY__
+      - ALERT_DISK=__ALERT_DISK__
+    networks:
+      - monitor-net
+networks:
+  monitor-net:
+    driver: bridge
+x-casaos:
+  id: com.maellldev.sentinel-monitor
+  main: master
+  index: /
+  port_map: ""
+  scheme: http
+  icon: https://raw.githubusercontent.com/MaellllDev/sentinel-monitor/main/logo.png
+  title:
+    en_US: Sentinel Monitor Master
+  tagline:
+    en_US: Bot do Telegram + WebSocket para monitoramento de VPS
+  description:
+    en_US: Sistema de monitoramento remoto de servidores VPS via Telegram.
+  author: MaelllDev
+  developer: MaelllDev
+  category: Networking
+  architectures:
+    - amd64
+    - arm64
+  version: "1.0.0"
+  update_at: "2026-09-20"
+  envs:
+    - container: TELEGRAM_TOKEN
+      description:
+        en_US: Token do bot do Telegram (crie via @BotFather)
+    - container: ALLOWED_CHAT_ID
+      description:
+        en_US: Chat ID do Telegram (obtenha via @userinfobot)
+    - container: API_KEY
+      description:
+        en_US: Chave de autenticação master-node
+    - container: MASTER_HOST
+      description:
+        en_US: IP público ou local deste servidor
+    - container: WS_PORT
+      description:
+        en_US: Porta do servidor WebSocket
+    - container: NODE_NAME
+      description:
+        en_US: Nome deste servidor no monitor
+    - container: METRICS_INTERVAL
+      description:
+        en_US: Intervalo de métricas em segundos
+    - container: ALERT_CPU
+      description:
+        en_US: Threshold de CPU para alertas (%)
+    - container: ALERT_MEMORY
+      description:
+        en_US: Threshold de RAM para alertas (%)
+    - container: ALERT_DISK
+      description:
+        en_US: Threshold de disco para alertas (%)
+    - container: CASAOS_URL
+      description:
+        en_US: URL do CasaOS (deixe vazio para desativar)
+    - container: CASAOS_USER
+      description:
+        en_US: Usuário do CasaOS
+    - container: CASAOS_PASSWORD
+      description:
+        en_US: Senha do CasaOS
+COMPOSEEOF
+}
+
+casaos_register_app() {
+    local url="$1" token="$2" name="$3"
+    local compose
+    compose=$(generate_casaos_compose | \
+        sed -e "s|__MASTER_IMAGE__|${MASTER_IMAGE}|g" \
+            -e "s|__WS_PORT__|${WS_PORT}|g" \
+            -e "s|__TELEGRAM_TOKEN__|${TELEGRAM_TOKEN}|g" \
+            -e "s|__ALLOWED_CHAT_ID__|${ALLOWED_CHAT_ID}|g" \
+            -e "s|__API_KEY__|${API_KEY}|g" \
+            -e "s|__MASTER_HOST__|${MASTER_HOST}|g" \
+            -e "s|__CASAOS_URL__|${CASAOS_URL}|g" \
+            -e "s|__CASAOS_USER__|${CASAOS_USER}|g" \
+            -e "s|__CASAOS_PASSWORD__|${CASAOS_PASSWORD}|g" \
+            -e "s|__NODE_IMAGE__|${NODE_IMAGE}|g" \
+            -e "s|__NODE_NAME__|${NODE_NAME}|g" \
+            -e "s|__METRICS_INTERVAL__|${METRICS_INTERVAL}|g" \
+            -e "s|__ALERT_CPU__|${ALERT_CPU}|g" \
+            -e "s|__ALERT_MEMORY__|${ALERT_MEMORY}|g" \
+            -e "s|__ALERT_DISK__|${ALERT_DISK}|g") || return 1
+
+    info "Registrando ${name} no CasaOS..."
+    if curl -sf -X POST "${url}/v2/app_management/compose" \
+        -H "Content-Type: application/yaml" \
+        -H "Authorization: ${token}" \
+        --data-binary "${compose}" 2>/dev/null; then
+        ok "${name} registrado como app no CasaOS."
+        return 0
+    else
+        warn "Não foi possível registrar ${name} no CasaOS via API."
+        info "Importe manualmente pelo painel do CasaOS (Custom Install) colando o YAML abaixo:"
+        echo "$compose"
+        return 1
+    fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # [1] INSTALAR MASTER
 # ─────────────────────────────────────────────────────────────────────────────
 install_master() {
@@ -444,6 +600,16 @@ install_master() {
         "$NODE_IMAGE"
 
     ok "Master e node local rodando!"
+
+    if [ -n "$CASAOS_URL" ]; then
+        info "Registrando no CasaOS..."
+        local casaos_token
+        casaos_token=$(casaos_login "$CASAOS_URL" "$CASAOS_USER" "$CASAOS_PASSWORD") || warn "Falha no login do CasaOS."
+        if [ -n "$casaos_token" ]; then
+            casaos_register_app "$CASAOS_URL" "$casaos_token" "Sentinel Monitor" || true
+        fi
+    fi
+
     echo
     echo -e " ${BOLD}API Key (guarde para adicionar nodes):${RESET}"
     echo -e " ${CYAN}${API_KEY}${RESET}"
@@ -617,6 +783,16 @@ update_master() {
     fi
 
     ok "Master atualizado e rodando!"
+
+    if [ -n "$CASAOS_URL" ]; then
+        info "Registrando no CasaOS..."
+        local casaos_token
+        casaos_token=$(casaos_login "$CASAOS_URL" "$CASAOS_USER" "$CASAOS_PASSWORD") || warn "Falha no login do CasaOS."
+        if [ -n "$casaos_token" ]; then
+            casaos_register_app "$CASAOS_URL" "$casaos_token" "Sentinel Monitor" || true
+        fi
+    fi
+
     show_logs "monitor-master"
 }
 
