@@ -2,7 +2,7 @@
 
 # 🖥️ Sentinel Monitor
 
-**Bot de monitoramento de servidores VPS via Telegram — arquitetura master/node em Python + Docker**
+**Telegram-based VPS server monitoring bot — Python + Docker master/node architecture**
 
 [![GitHub](https://img.shields.io/badge/GitHub-MaelllDev%2Fsentinel--monitor-181717?style=flat&logo=github)](https://github.com/MaelllDev/sentinel-monitor)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
@@ -13,11 +13,11 @@
 
 ---
 
-## O que é
+## What it is
 
-O **Sentinel Monitor** é um sistema de monitoramento remoto de servidores VPS controlado pelo Telegram. Você gerencia todos os seus servidores a partir de um único bot, sem precisar abrir SSH ou painel de controle.
+**Sentinel Monitor** is a remote VPS server monitoring system controlled via Telegram. You manage all your servers from a single bot — no SSH or web panel needed.
 
-Funciona com uma arquitetura **master/node**:
+It uses a **master/node** architecture:
 
 ```
 [VPS Node 1] ──┐
@@ -25,188 +25,188 @@ Funciona com uma arquitetura **master/node**:
 [VPS Node N] ──┘
 ```
 
-- **Master** — roda no seu PC ou servidor central. Hospeda o bot do Telegram e o servidor WebSocket que recebe dados dos nodes.
-- **Node** — um agente leve que roda em cada VPS. Coleta métricas do sistema e envia ao master continuamente.
+- **Master** — runs on your central server/PC. Hosts the Telegram bot and WebSocket server that receives data from nodes.
+- **Node** — a lightweight agent running on each VPS. Collects system metrics and sends them to the master continuously.
 
 ---
 
-## Instalação
+## Installation
 
-Tudo é feito com um único comando — sem clonar o repositório, sem buildar imagens.
+Everything is done with a single command — no cloning, no building.
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/MaelllDev/sentinel-monitor/main/setup.sh)
 ```
 
-O script apresenta um menu interativo:
+The script presents an interactive menu:
 
 ```
-  [1] Instalar MASTER  (bot do Telegram + servidor WebSocket)
-  [2] Instalar NODE    (agente de métricas para esta VPS)
-  [3] Atualizar MASTER
-  [4] Atualizar NODE
-  [5] Remover MASTER
-  [6] Remover NODE
-  [7] Remover TUDO (desinstalação completa)
+  [1] Install MASTER  (Telegram bot + WebSocket server)
+  [2] Install NODE    (metrics agent for this VPS)
+  [3] Update MASTER
+  [4] Update NODE
+  [5] Remove MASTER
+  [6] Remove NODE
+  [7] Remove ALL (complete uninstall)
 ```
 
-### Instalar o Master
+### Install the Master
 
-Execute o script no servidor que vai rodar o bot. Você vai precisar de:
+Run the script on the server that will host the bot. You'll need:
 
-- Token do bot do Telegram — crie via [@BotFather](https://t.me/BotFather)
-- Seu `chat_id` do Telegram — obtenha via [@userinfobot](https://t.me/userinfobot)
-- IP público ou local deste servidor (para os nodes se conectarem)
+- Telegram bot token — create via [@BotFather](https://t.me/BotFather)
+- Your Telegram `chat_id` — get it via [@userinfobot](https://t.me/userinfobot)
+- Public or local IP of this server (for nodes to connect)
 
-O script configura tudo interativamente, baixa as imagens do registry e sobe o master junto com um node local que monitora o próprio servidor.
+The script configures everything interactively, pulls images from the registry, and starts the master along with a local node that monitors the host itself.
 
-### Instalar um Node (VPS)
+### Install a Node (VPS)
 
-Execute o script em cada VPS que quiser monitorar. Você vai precisar da API Key gerada durante a instalação do master.
+Run the script on each VPS you want to monitor. You'll need the API key generated during master installation.
 
-Ou use `/integrar` no Telegram — o bot gera o `docker run` completo com tudo preenchido.
+Or use `/integrar` in Telegram — the bot generates the complete `docker run` command pre-filled.
 
-### Atualizar
+### Update
 
-Para atualizar master ou node para a versão mais recente, execute o script novamente e escolha a opção 3 ou 4. As configurações existentes são preservadas automaticamente.
+To update master or node to the latest version, run the script again and choose option 3 or 4. Existing settings are preserved automatically.
 
 ---
 
-## Pré-requisitos
+## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) instalado (o script instala automaticamente se não encontrar)
-- Token de bot do Telegram — crie via [@BotFather](https://t.me/BotFather)
-- Seu `chat_id` do Telegram — obtenha via [@userinfobot](https://t.me/userinfobot)
+- [Docker](https://docs.docker.com/get-docker/) installed (script installs automatically if missing)
+- Telegram bot token — create via [@BotFather](https://t.me/BotFather)
+- Your Telegram `chat_id` — get it via [@userinfobot](https://t.me/userinfobot)
 
 ---
 
-## Imagens Docker
+## Docker Images
 
-As imagens são publicadas automaticamente no GitHub Container Registry a cada push na `main`:
+Images are published automatically to GitHub Container Registry on each push to `main`:
 
-| Imagem | Descrição |
+| Image | Description |
 |---|---|
-| `ghcr.io/maellldev/sentinel-monitor-master:latest` | Bot do Telegram + servidor WebSocket |
-| `ghcr.io/maellldev/sentinel-monitor-node:latest` | Agente de métricas para VPS |
+| `ghcr.io/maellldev/sentinel-monitor-master:latest` | Telegram bot + WebSocket server |
+| `ghcr.io/maellldev/sentinel-monitor-node:latest` | Metrics agent for VPS |
 
 ---
 
-## Funcionalidades
+## Features
 
-- 📊 **Métricas em tempo real** — CPU, RAM, disco, temperatura e rede
-- 🐳 **Visibilidade Docker** — lista contêineres e seus estados
-- 🔌 **Portas em escuta** — quais serviços estão expostos na VPS
-- 🔔 **Alertas automáticos** — notificação no Telegram quando CPU/RAM/disco ultrapassam threshold
-- 🏠 **Integração CasaOS** — gerenciamento de apps instalados via CasaOS (opcional)
-- ⚡ **Instalação rápida de nodes** — o comando `/integrar` gera o `docker run` completo para copiar e colar na VPS
-- 🔐 **Acesso restrito** — bot responde apenas ao seu `chat_id`
-- 🔄 **Reconexão automática** — nodes reconectam ao master sem intervenção manual
+- 📊 **Real-time metrics** — CPU, RAM, disk, temperature, network
+- 🐳 **Docker visibility** — lists containers and their states
+- 🔌 **Listening ports** — which services are exposed on the VPS
+- 🔔 **Automatic alerts** — Telegram notification when CPU/RAM/disk exceeds threshold
+- 🏠 **CasaOS integration** — manage installed apps via CasaOS (optional)
+- ⚡ **Quick node setup** — `/integrar` generates the complete `docker run` command
+- 🔐 **Access control** — bot only responds to the configured `chat_id`
+- 🔄 **Auto-reconnect** — nodes reconnect to master without manual intervention
 
 ---
 
-## Variáveis de ambiente
+## Environment variables
 
 ### Master
 
-| Variável | Descrição | Padrão |
+| Variable | Description | Default |
 |---|---|---|
-| `TELEGRAM_TOKEN` | Token do bot do Telegram | obrigatório |
-| `ALLOWED_CHAT_ID` | chat_id autorizado a usar o bot | obrigatório |
-| `API_KEY` | Chave de autenticação master↔node | obrigatório |
-| `MASTER_HOST` | IP ou domínio público do master | obrigatório |
-| `WS_PORT` | Porta do servidor WebSocket | `8765` |
-| `CASAOS_URL` | URL do CasaOS (deixe vazio para desativar) | — |
-| `CASAOS_USER` | Usuário do CasaOS | — |
-| `CASAOS_PASSWORD` | Senha do CasaOS | — |
+| `TELEGRAM_TOKEN` | Telegram bot token | required |
+| `ALLOWED_CHAT_ID` | chat_id authorized to use the bot | required |
+| `API_KEY` | Authentication key master↔node | required |
+| `MASTER_HOST` | Public IP or domain of the master | required |
+| `WS_PORT` | WebSocket server port | `8765` |
+| `CASAOS_URL` | CasaOS URL (leave empty to disable) | — |
+| `CASAOS_USER` | CasaOS username | — |
+| `CASAOS_PASSWORD` | CasaOS password | — |
 
 ### Node
 
-| Variável | Descrição | Padrão |
+| Variable | Description | Default |
 |---|---|---|
-| `MASTER_WS_URL` | URL WebSocket do master | obrigatório |
-| `API_KEY` | Mesma chave configurada no master | obrigatório |
-| `NODE_NAME` | Nome amigável desta VPS | obrigatório |
-| `METRICS_INTERVAL` | Intervalo de envio de métricas (segundos) | `10` |
-| `ALERT_CPU` | Threshold de CPU para alertas (%) | `90` |
-| `ALERT_MEMORY` | Threshold de RAM para alertas (%) | `90` |
-| `ALERT_DISK` | Threshold de disco para alertas (%) | `90` |
+| `MASTER_WS_URL` | Master WebSocket URL | required |
+| `API_KEY` | Same key configured on the master | required |
+| `NODE_NAME` | Friendly name for this VPS | required |
+| `METRICS_INTERVAL` | Metrics send interval (seconds) | `10` |
+| `ALERT_CPU` | CPU threshold for alerts (%) | `90` |
+| `ALERT_MEMORY` | RAM threshold for alerts (%) | `90` |
+| `ALERT_DISK` | Disk threshold for alerts (%) | `90` |
 
 ---
 
-## Comandos do bot
+## Bot commands
 
-| Comando | Descrição |
+| Command | Description |
 |---|---|
-| `/start` | Mensagem de boas-vindas |
-| `/status` | Painel resumido de todos os servidores |
-| `/status <nome>` | Detalhes de um servidor específico |
-| `/saude` | Diagnóstico e limites configurados |
-| `/apps [nome]` | Contêineres Docker e seus estados |
-| `/portas [nome]` | Portas TCP em escuta |
-| `/cpu [nome]` | Uso de CPU e maiores consumidores |
-| `/memoria [nome]` | RAM e maiores consumidores |
-| `/disco [nome]` | Uso das partições |
-| `/temperatura [nome]` | Temperatura dos sensores e limites |
-| `/rede [nome]` | Interfaces de rede e endereços |
-| `/servidores` | Lista de nodes conectados |
-| `/renomear <atual> <novo>` | Renomeia um servidor |
-| `/integrar` | Gera o comando para adicionar nova VPS |
-| `/limpar` | Limpa mensagens recentes do bot |
-| `/versao` | Versão instalada |
+| `/start` | Welcome message |
+| `/status` | Summary panel of all servers |
+| `/status <name>` | Details of a specific server |
+| `/saude` | Diagnostics and configured limits |
+| `/apps [name]` | Docker containers and their states |
+| `/portas [name]` | TCP listening ports |
+| `/cpu [name]` | CPU usage and top consumers |
+| `/memoria [name]` | RAM and top consumers |
+| `/disco [name]` | Partition usage |
+| `/temperatura [name]` | Sensor temperatures and limits |
+| `/rede [name]` | Network interfaces and addresses |
+| `/servidores` | List of connected nodes |
+| `/renomear <old> <new>` | Rename a server |
+| `/integrar` | Generates the command to add a new VPS |
+| `/limpar` | Clears recent bot messages |
+| `/versao` | Installed version |
 
-### Comandos CasaOS (se configurado)
+### CasaOS commands (if configured)
 
-| Comando | Descrição |
+| Command | Description |
 |---|---|
-| `/casastatus` | Status geral do CasaOS |
-| `/casaapps` | Apps instalados no CasaOS |
+| `/casastatus` | CasaOS overall status |
+| `/casaapps` | Apps installed in CasaOS |
 
 ---
 
-## Alertas automáticos
+## Automatic alerts
 
-O node monitora CPU, RAM e disco continuamente. Quando o uso ultrapassa o threshold configurado, um alerta é enviado automaticamente no Telegram.
+The node monitors CPU, RAM, and disk continuously. When usage exceeds the configured threshold, an alert is sent automatically via Telegram.
 
-- Thresholds padrão: **90%** para CPU, RAM e disco
-- Configure via variáveis `ALERT_CPU`, `ALERT_MEMORY`, `ALERT_DISK`
-- Cooldown de **5 minutos** por métrica para evitar spam
-
----
-
-## Segurança
-
-- O bot responde **somente** ao `ALLOWED_CHAT_ID` configurado
-- Nodes se autenticam com `API_KEY` no handshake WebSocket — conexões sem a chave são rejeitadas
-- Nunca exponha a porta WebSocket diretamente sem firewall em produção
+- Default thresholds: **90%** for CPU, RAM, and disk
+- Configure via `ALERT_CPU`, `ALERT_MEMORY`, `ALERT_DISK`
+- **5-minute cooldown** per metric to prevent spam
 
 ---
 
-## Estrutura do projeto
+## Security
+
+- The bot only responds to the configured `ALLOWED_CHAT_ID`
+- Nodes authenticate with `API_KEY` during WebSocket handshake — connections without the key are rejected
+- Never expose the WebSocket port directly without a firewall in production
+
+---
+
+## Project structure
 
 ```
 sentinel-monitor/
 ├── master/
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   ├── bot.py          # Bot do Telegram e handlers de todos os comandos
-│   ├── ws_server.py    # Servidor WebSocket que recebe dados dos nodes
-│   └── casaos.py       # Integração com a API do CasaOS
+│   ├── bot.py          # Telegram bot and command handlers
+│   ├── ws_server.py    # WebSocket server receiving data from nodes
+│   └── casaos.py       # CasaOS API integration
 ├── node/
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   ├── agent.py        # Agente WebSocket que roda na VPS
-│   └── metrics.py      # Coleta de métricas via psutil
+│   ├── agent.py        # WebSocket agent running on the VPS
+│   └── metrics.py      # Metrics collection via psutil
 ├── .github/
 │   └── workflows/
-│       └── docker-publish.yml  # CI: build e push automático no ghcr.io
-├── docker-compose.yml  # Sobe master + node local (uso avançado)
-├── setup.sh            # Setup interativo unificado
-├── .env.example        # Template de configuração
+│       └── docker-publish.yml  # CI: automatic build & push to ghcr.io
+├── docker-compose.yml  # Bring up master + local node (advanced usage)
+├── setup.sh            # Unified interactive setup
+├── .env.example        # Configuration template
 └── README.md
 ```
 
 ---
 
-## Licença
+## License
 
-MIT — veja [LICENSE](LICENSE) para detalhes.
+MIT — see [LICENSE](LICENSE) for details.
