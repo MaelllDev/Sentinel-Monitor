@@ -5,27 +5,16 @@ on:
     branches:
       - main
     paths:
-      # Rebuilda master apenas quando arquivos do master mudarem
       - "master/**"
-      - "!master/Dockerfile"  # o próprio Dockerfile é tratado abaixo
-      - "master/Dockerfile"
-      # Rebuilda node apenas quando arquivos do node mudarem
       - "node/**"
-      - "!node/Dockerfile"
-      - "node/Dockerfile"
-      # Qualquer mudança no workflow também triggera
       - ".github/workflows/docker-publish.yml"
-  # Permite rodar manualmente pelo GitHub Actions UI
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  OWNER: maellldev  # deve ser lowercase
+  OWNER: maellldev
 
 jobs:
-  # ────────────────────────────────────────────────────────────
-  # Build e push da imagem MASTER
-  # ────────────────────────────────────────────────────────────
   build-master:
     name: Build master
     runs-on: ubuntu-latest
@@ -36,6 +25,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to ghcr.io
         uses: docker/login-action@v3
@@ -60,12 +52,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=master
+          cache-to: type=gha,scope=master,mode=max
 
-  # ────────────────────────────────────────────────────────────
-  # Build e push da imagem NODE
-  # ────────────────────────────────────────────────────────────
   build-node:
     name: Build node
     runs-on: ubuntu-latest
@@ -76,6 +65,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to ghcr.io
         uses: docker/login-action@v3
@@ -100,5 +92,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=node
+          cache-to: type=gha,scope=node,mode=max
