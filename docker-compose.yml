@@ -1,0 +1,58 @@
+version: "3.9"
+
+# ──────────────────────────────────────────────
+# Rodar no PC MASTER (roda o bot + servidor WS)
+# ──────────────────────────────────────────────
+services:
+  master:
+    build:
+      context: ./master
+      dockerfile: Dockerfile
+    container_name: monitor-master
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${WS_PORT:-8765}:8765"
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - ALLOWED_CHAT_ID=${ALLOWED_CHAT_ID}
+      - API_KEY=${API_KEY}
+      - WS_PORT=8765
+      - MASTER_HOST=${MASTER_HOST:-localhost}
+      - CASAOS_URL=${CASAOS_URL:-}
+      - CASAOS_USER=${CASAOS_USER:-}
+      - CASAOS_PASSWORD=${CASAOS_PASSWORD:-}
+    networks:
+      - monitor-net
+
+  # ──────────────────────────────────────────────
+  # Node LOCAL — monitora o próprio PC master.
+  # Sobe automaticamente junto com o master.
+  # ──────────────────────────────────────────────
+  node-local:
+    build:
+      context: ./node
+      dockerfile: Dockerfile
+    container_name: monitor-node-local
+    restart: unless-stopped
+    pid: host                          # necessário para ver processos do host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - MASTER_WS_URL=ws://master:8765  # nome do serviço Docker, não IP
+      - API_KEY=${API_KEY}
+      - NODE_NAME=${NODE_NAME:-master-local}
+      - METRICS_INTERVAL=${METRICS_INTERVAL:-10}
+      - ALERT_CPU=${ALERT_CPU:-90}
+      - ALERT_MEMORY=${ALERT_MEMORY:-90}
+      - ALERT_DISK=${ALERT_DISK:-90}
+    depends_on:
+      - master
+    networks:
+      - monitor-net
+
+networks:
+  monitor-net:
+    driver: bridge
