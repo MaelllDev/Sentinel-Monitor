@@ -5,9 +5,7 @@ version: "3.9"
 # ──────────────────────────────────────────────
 services:
   master:
-    build:
-      context: ./master
-      dockerfile: Dockerfile
+    image: ghcr.io/maellldev/sentinel-monitor-master:latest
     container_name: monitor-master
     restart: unless-stopped
     env_file: .env
@@ -30,9 +28,7 @@ services:
   # Sobe automaticamente junto com o master.
   # ──────────────────────────────────────────────
   node-local:
-    build:
-      context: ./node
-      dockerfile: Dockerfile
+    image: ghcr.io/maellldev/sentinel-monitor-node:latest
     container_name: monitor-node-local
     restart: unless-stopped
     pid: host                          # necessário para ver processos do host
