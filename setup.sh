@@ -291,13 +291,49 @@ casaos_render_yaml() {
             -e "s|__ALERT_DISK__|${ALERT_DISK}|g"
 }
 
+casaos_app_id() {
+    echo "com.maellldev.sentinel-monitor"
+}
+
+casaos_check_app() {
+    local url="$1" token="$2"
+    local app_id
+    app_id=$(casaos_app_id)
+    if curl -sf -X GET "${url}/v2/app_management/compose/${app_id}" \
+        -H "Authorization: ${token}" 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+casaos_uninstall_app() {
+    local url="$1" token="$2"
+    local app_id
+    app_id=$(casaos_app_id)
+    if curl -sf -X DELETE "${url}/v2/app_management/compose/${app_id}" \
+        -H "Authorization: ${token}" 2>/dev/null; then
+        ok "App legado desinstalado do CasaOS."
+        return 0
+    else
+        warn "Não foi possível desinstalar app legado do CasaOS."
+        return 1
+    fi
+}
+
 casaos_register_app() {
     local url="$1" token="$2" name="$3"
     local compose
     compose=$(casaos_render_yaml) || return 1
 
     info "Registrando ${name} no CasaOS..."
+    
+    # First, check if app already exists and uninstall it
+    if casaos_check_app "$url" "$token"; then
+        info "Removendo app legado do CasaOS..."
+        casaos_uninstall_app "$url" "$token" || true
+    fi
 
+    # Then register the new app
     if curl -sf -X POST "${url}/v2/app_management/compose" \
         -H "Content-Type: application/yaml" \
         -H "Authorization: ${token}" \
